@@ -2,7 +2,7 @@
 
 import gdal
 import os
-import sys
+import sys, getopt
 import math
 import csv
 
@@ -37,12 +37,23 @@ def km_to_lon(km, lat):
 def km_to_lat(km):
     return km / 110.54 # 110.54 km = 1 deg on latitude
 
-if len(sys.argv) != 2:
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'i:')
+except getopt.GetoptError:
+    print("unrecognized option")
     sys.exit(1)
 
-dataset = sys.argv[1]
+for opt, arg in opts:
+    if opt == '-i':
+        dataset = os.path.splitext(arg)[0]
+
+if dataset is None:
+    print("must give input dataset")
+    sys.exit(1)
+
 bottom_left = {}
 up_right = {}
+print("opening dataset {}.csv...".format(dataset))
 with open("{}.csv".format(dataset), newline='') as csvfile:
     min_lat = 1000.0
     min_lon = 1000.0
@@ -65,6 +76,7 @@ with open("{}.csv".format(dataset), newline='') as csvfile:
     up_right['latitude'] = max_lat
     up_right['longitude'] = max_lon
 
+print("bounded region:", bottom_left, up_right)
 
 # 21.21 meter radius in degrees
 #print(bottom_left, up_right)
@@ -80,6 +92,16 @@ lon_tiles = math.ceil((max_lon - min_lon) / lon_tile_size)
 tiles = max(lat_tiles, lon_tiles)
 
 #print(lat_radius, lon_radius)
-os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=50000.0 -outsize {} {} -of GTiff -ot Float64 -l {} {}.vrt {}.tiff --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataset, dataset, dataset))
-os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=255.0 -outsize {} {} -of GTiff -ot Byte -l {} {}.vrt {}-visual.tiff --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataset, dataset, dataset))
-read_gtiff(dataset)
+print('creating heatmpas...')
+cwd = os.getcwd()
+dataname = os.path.split(dataset)[-1]
+os.chdir(os.path.split(dataset)[0])
+try:
+    os.mkdir('heatmaps')
+except OSError:
+    pass
+os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=50000.0 -outsize {} {} -of GTiff -ot Float64 -l "{}" "{}.vrt" "heatmaps/{}.tiff" --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataname, dataname, dataname))
+os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=255.0 -outsize {} {} -of GTiff -ot Byte -l "{}" "{}.vrt" "heatmaps/{}-visual.tiff" --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataname, dataname, dataname))
+os.chdir('heatmaps')
+read_gtiff(dataname)
+os.chdir(cwd)

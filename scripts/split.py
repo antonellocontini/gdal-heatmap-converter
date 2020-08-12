@@ -1,11 +1,28 @@
 import csv
+import sys, getopt
+import os
+
+data_file = "data.csv"
+output_folder = ""
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'i:o:')
+except getopt.GetoptError:
+    print("unrecognized option")
+    sys.exit(1)
+
+for opt, arg in opts:
+    if opt == '-i':
+        data_file = arg
+    elif opt == '-o':
+        output_folder = os.path.join(arg, '')
 
 fieldnames = ['latitude','longitude','value']
 
-ph_file = open("ph.csv", "w", newline="")
-t_file = open("t.csv", "w", newline="")
-o2_file = open("o2.csv", "w", newline="")
-ec_file = open("ec.csv", "w", newline="")
+ph_file = open(output_folder + "ph.csv", "w", newline="")
+t_file = open(output_folder + "t.csv", "w", newline="")
+o2_file = open(output_folder + "o2.csv", "w", newline="")
+ec_file = open(output_folder + "ec.csv", "w", newline="")
 
 ph_writer = csv.DictWriter(ph_file, fieldnames=fieldnames)
 t_writer = csv.DictWriter(t_file, fieldnames=fieldnames)
@@ -17,7 +34,8 @@ t_writer.writeheader()
 o2_writer.writeheader()
 ec_writer.writeheader()
 
-with open("data.csv", newline='') as csvfile:
+
+with open(data_file, newline='') as csvfile:
     reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
     valid_count = 0
     count = 0

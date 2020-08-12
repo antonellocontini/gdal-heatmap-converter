@@ -1,6 +1,7 @@
 import csv
 import datetime
-import sys
+import sys, getopt
+import os
 
 def parse_datetime(s):
     return datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S %Z")
@@ -42,15 +43,32 @@ def merge(start_timestamp):
                     write_csv(t_reader, merge_writer, parse_datetime(start_timestamp), "temperature")
                     write_csv(o2_reader, merge_writer, parse_datetime(start_timestamp), "dissolved_oxygen")
                     write_csv(ph_reader, merge_writer, parse_datetime(start_timestamp), "pH")
-                    
-if len(sys.argv) != 2:
-    print("usage python3 merge.py [date in format %Y-%m-%d %H:%M:%S %Z]")
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'i:d:')
+except getopt.GetoptError:
+    print("usage python3 merge.py -i 'directory' -d [date in format %Y-%m-%d %H:%M:%S %Z]")
+    sys.exit(1)
+
+folder = None
+date = None
+for opt, arg in opts:
+    if opt == '-i':
+        folder = os.path.join(arg, "")
+    elif opt == '-d':
+        date = arg
+
+if folder is None or date is None:
+    print("usage python3 merge.py -i 'directory' -d [date in format %Y-%m-%d %H:%M:%S %Z]")
     sys.exit(1)
     
 try:
-    parse_datetime(sys.argv[1])
+    parse_datetime(date)
 except:
-    print("usage python3 merge.py [date in format %Y-%m-%d %H:%M:%S %Z]")
+    print("usage python3 merge.py -i 'directory' -d [date in format %Y-%m-%d %H:%M:%S %Z]")
     sys.exit(1)
     
-merge(sys.argv[1])
+cwd = os.getcwd()
+os.chdir(folder)
+merge(date)
+os.chdir(cwd)
