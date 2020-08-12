@@ -1,0 +1,1 @@
+gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1=0.0002:radius2=0.0001:nodata=50000.0 -outsize 30 30 -of GTiff -ot Float64 -l t t.vrt t.tiff --config GDAL_NUM_THREADS ALL_CPUS 

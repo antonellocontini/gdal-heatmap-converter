@@ -1,0 +1,85 @@
+# requires gdal bindings for python and gdal-bin package (for gdal-grid)
+
+import gdal
+import os
+import sys
+import math
+import csv
+
+def read_gtiff(filename):
+    dataset = gdal.Open("{}.tiff".format(filename))
+    band = dataset.GetRasterBand(1)
+    array = band.ReadAsArray()
+    geotransform = dataset.GetGeoTransform()
+    originX = geotransform[0]
+    originY = geotransform[3]
+    pixelWidth = geotransform[1]
+    pixelHeight = geotransform[5]
+
+    sizeX = len(array)
+    sizeY = len(array[0])
+    fieldnames = ['latitude','longitude','value']
+    heatmap_csv = open("{}_heatmap.csv".format(filename), "w", newline="")
+    csv_writer = csv.DictWriter(heatmap_csv, fieldnames=fieldnames)
+    csv_writer.writeheader()
+    for x in range(sizeX):
+        for y in range(sizeY):
+            coordX = originX+pixelWidth*x
+            coordY = originY+pixelHeight*y
+            if array[x][y] != 50000.0:
+                csv_writer.writerow({'latitude': coordY, 'longitude': coordX, 'value': array[x][y]})
+    heatmap_csv.close()
+
+# https://stackoverflow.com/questions/14344207/how-to-convert-distancemiles-to-degrees
+def km_to_lon(km, lat):
+    return km / (111.32 * math.cos(math.radians(lat)))
+
+def km_to_lat(km):
+    return km / 110.54 # 110.54 km = 1 deg on latitude
+
+if len(sys.argv) != 2:
+    sys.exit(1)
+
+dataset = sys.argv[1]
+bottom_left = {}
+up_right = {}
+with open("{}.csv".format(dataset), newline='') as csvfile:
+    min_lat = 1000.0
+    min_lon = 1000.0
+    max_lat = -1000.0
+    max_lon = -1000.0
+    reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
+    for row in reader:
+        lat = float(row['latitude'])
+        lon = float(row['longitude'])
+        if lat < min_lat:
+            min_lat = lat
+        if lat > max_lat:
+            max_lat = lat
+        if lon < min_lon:
+            min_lon = lon
+        if lon > max_lon:
+            max_lon = lon
+    bottom_left['latitude'] = min_lat
+    bottom_left['longitude'] = min_lon
+    up_right['latitude'] = max_lat
+    up_right['longitude'] = max_lon
+
+
+# 21.21 meter radius in degrees
+#print(bottom_left, up_right)
+lat_radius = km_to_lat(0.02121)
+lon_radius = km_to_lon(0.02121, min_lat)
+
+# 15 meter grid size
+lat_tile_size = km_to_lat(0.015)
+lon_tile_size = km_to_lon(0.015, min_lat)
+#print(lat_tile_size, lon_tile_size)
+lat_tiles = math.ceil((max_lat - min_lat) / lat_tile_size)
+lon_tiles = math.ceil((max_lon - min_lon) / lon_tile_size)
+tiles = max(lat_tiles, lon_tiles)
+
+#print(lat_radius, lon_radius)
+os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=50000.0 -outsize {} {} -of GTiff -ot Float64 -l {} {}.vrt {}.tiff --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataset, dataset, dataset))
+os.system('gdal_grid -zfield "value" -a invdist:power=2.0:smoothing=1.0:radius1={}:radius2={}:nodata=255.0 -outsize {} {} -of GTiff -ot Byte -l {} {}.vrt {}-visual.tiff --config GDAL_NUM_THREADS ALL_CPUS'.format(lon_radius, lat_radius, tiles, tiles, dataset, dataset, dataset))
+read_gtiff(dataset)
