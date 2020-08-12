@@ -18,14 +18,19 @@ def read_gtiff(filename):
 
     sizeX = len(array)
     sizeY = len(array[0])
+
+    # print(originX, originY, pixelWidth, pixelHeight)
+    # print(sizeX, sizeY)
+    # print(originX, originY, originX+pixelWidth*sizeX, originY+pixelHeight*sizeY)
+    # print(array)
     fieldnames = ['latitude','longitude','value']
     heatmap_csv = open("{}_heatmap.csv".format(filename), "w", newline="")
     csv_writer = csv.DictWriter(heatmap_csv, fieldnames=fieldnames)
     csv_writer.writeheader()
     for x in range(sizeX):
         for y in range(sizeY):
-            coordX = originX+pixelWidth*x
-            coordY = originY+pixelHeight*y
+            coordX = originX+pixelWidth*y
+            coordY = originY+pixelHeight*x
             if array[x][y] != 50000.0:
                 csv_writer.writerow({'latitude': coordY, 'longitude': coordX, 'value': array[x][y]})
     heatmap_csv.close()
